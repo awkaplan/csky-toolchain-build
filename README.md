@@ -1,5 +1,42 @@
 # toolchain-build
 
+## About this fork
+
+This is a fork of [c-sky/toolchain-build](https://github.com/c-sky/toolchain-build)
+by C-SKY Microsystems (Hangzhou C-SKY Microsystems Co., Ltd., now part of T-Head / XuanTie).
+The `gcc-6_3-build` branch is based on upstream commit
+[`b849ba3`](https://github.com/c-sky/toolchain-build/commit/b849ba315b998384f2046328b0416efddc6b1a86)
+("Add 860 multilib", 2018-04-21), the original single-script layout that builds the
+GCC 6.3-based C-SKY toolchain. Upstream `master` has since been restructured and is not
+carried here.
+
+**Upstream authors** (from the upstream git history): quxianmiao / quxm (Xianmiao Qu, C-SKY)
+wrote `build-csky-gcc.py`, the examples and this README; later upstream work is by quxm and
+Cooper Qu. The files under `examples/` carry their own
+"Copyright (C) Hangzhou C-SKY Microsystem Co., Ltd." notices. `elf_minilibc_base.tar.gz` is an
+upstream-supplied archive of prebuilt C-SKY libraries and headers and is shipped unmodified.
+
+**Licensing.** The upstream repository has no license file and the script has no license
+header. This fork grants no license for the upstream code (including `examples/` and
+`elf_minilibc_base.tar.gz`); publishing it does not change the upstream authors' rights.
+The license for this fork's own changes is to be decided.
+
+**Changes on this branch** (all to `build-csky-gcc.py`), made so that the elf/minilibc C
+toolchain (`--abi=abiv2 --tos=elf`) builds unattended inside a container on a current host:
+
+- Port the script to Python 3.
+- Clone binutils, gcc, minilibc and gdb over HTTPS instead of SSH, so no SSH key is needed.
+- Default `--user` to an empty string when `$USER` is unset instead of crashing.
+- Fix four invalid-escape `SyntaxWarning`s.
+- Decode subprocess output to `str` in `cmd_exec`.
+- Do not pass `--with-headers` to the stage-2 elf GCC build: the bundled minilibc headers lack
+  `pid_t`, which broke libgcc.
+- Build C only. libstdc++'s configure link tests fail under this cross build.
+- Leave gdb out of the default component chain. The gdb-7.12-era sources do not compile with a
+  current host C++ compiler; `-m gdb` still builds it on request.
+
+The upstream build instructions below are unchanged.
+
 ## BUILD toolchain
 First, create a directory for building toolchain.<br>
 Second, enter the direcotry, and copy the script “build-csky-gcc.py” to this directory.<br>

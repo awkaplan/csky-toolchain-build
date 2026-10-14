@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # -*- coding: UTF-8 -*-
 
 csky_sim_elf_exp = '''
@@ -100,7 +100,7 @@ def cmd_exec(options, cmd, out = True, fake = True):
 		cmd = cmd.replace(make_src, make_dst + " ")
 
 	if options.fake and fake:
-		print "exec command: " + cmd
+		print("exec command: " + cmd)
 		return ("", "fake command :)\n", 0)
 	if sys.version_info >= (2, 4):
 		import subprocess
@@ -111,6 +111,9 @@ def cmd_exec(options, cmd, out = True, fake = True):
 			p = subprocess.Popen(cmd, shell=True,
 		          stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, close_fds=True)
 		(o, e) = p.communicate()
+		# Python 3: communicate() returns bytes, callers expect str
+		if isinstance(o, bytes): o = o.decode("utf-8", "replace")
+		if isinstance(e, bytes): e = e.decode("utf-8", "replace")
 		r = p.returncode
 	else:
 		p = os.popen(cmd)
@@ -126,10 +129,10 @@ def cmd_exec_is_error(r, e):
 	if r != 0:
 		t = True
 	if t:
-		print "\n--> start error output\n"
-		print "error code: %d" % r
-		print "%s" % e
-		print "<-- end error output\n"
+		print("\n--> start error output\n")
+		print("error code: %d" % r)
+		print("%s" % e)
+		print("<-- end error output\n")
 	return t
 
 def get_component(options, mm):
@@ -138,8 +141,8 @@ def get_component(options, mm):
 		mm = getattr(options, mm.lstrip("-").replace("-", "_"))
 
 	mm = mm.split(".")
-	if mm[0] not in component.keys():
-		print "\n*** component '%s' is not supported :( ***\n*** Please use -h for more detail ***\n" % mm[0]
+	if mm[0] not in component:
+		print("\n*** component '%s' is not supported :( ***\n*** Please use -h for more detail ***\n" % mm[0])
 		sys.exit(2)
 
 	stage_nums = len(component[mm[0]]["worker"])
@@ -148,8 +151,8 @@ def get_component(options, mm):
 	if len(mm) > 1:
 		stage = int(mm[1])
 		if stage >= stage_nums:
-			print "\n*** stage %s is out of max stage %s of component '%s' ***\n" \
-				  % (stage, stage_nums - 1, mm[0])
+			print("\n*** stage %s is out of max stage %s of component '%s' ***\n"
+				  % (stage, stage_nums - 1, mm[0]))
 			sys.exit(2)
 	mm = mm[0]
 	#print "\n<-- get component: '%s' stage: %s" % (mm, stage)
@@ -159,12 +162,12 @@ def get_target_name(options):
 	name = "csky-%s%s" % (options.tos, options.abi)
 	if options.abi == "abiv1":
 		name = "csky-%s" % options.tos
-        if options.tos == "linux":
-            if options.libc == "glibc":
-                libc = "gnu"
-            else:
-                libc = "uclibc"
-            name = "csky-%s-%s%s" % (options.tos, libc, options.abi)
+		if options.tos == "linux":
+			if options.libc == "glibc":
+				libc = "gnu"
+			else:
+				libc = "uclibc"
+			name = "csky-%s-%s%s" % (options.tos, libc, options.abi)
 	return name
 
 def get_old_target_name(options):
@@ -205,7 +208,7 @@ def build_cmd(options, fformat, vvar = None):
 	cc = cmd.split(" ")
 	for c in cc:
 		for patten in options.cmd_compatibility:
-			for p in patten.keys():
+			for p in patten:
 				if c.find(p) != -1:
 					cmd = cmd.replace(c, patten[p])
 	return cmd
@@ -220,7 +223,7 @@ def cmd_exec_with_checkerr(options, cmd, out = True, fake = True):
 	cmd = path + cmd
 	(o, e, r) = cmd_exec(options, cmd, out, fake)
 	if cmd_exec_is_error(r, e):
-		print "exec command: " + cmd
+		print("exec command: " + cmd)
 		sys.exit(2)
 	return o
 
@@ -228,7 +231,7 @@ def cmd_exec_ret_with_checkerr(options, cmd):
 	return cmd_exec_with_checkerr(options, cmd, False, False).strip()
 
 def build_return(options, mm, stage = 0):
-	if "cmd_post" in component[mm].keys():
+	if "cmd_post" in component[mm]:
 		cmd_exec_with_checkerr(options, component[mm]["cmd_post"])
 	f = get_finished_target(options, mm, stage)
 	cmd_exec_with_checkerr(options, "touch '%s'" % f)
@@ -238,23 +241,23 @@ def build_return(options, mm, stage = 0):
 def build_start(options, mm, stage = 0):
 	m = mm
 	if len(component[mm]["worker"]) != 1: m += "." + str(stage)
-	print "\n====> start building component '%s' ... ..." % m
+	print("\n====> start building component '%s' ... ..." % m)
 
 	component[mm]["append"] = ""
 	# used for post exec
 	component[mm]["cmd_post"] = ""
 
-	if "bos" in component[mm].keys():
-		print "--> current building platform/os is \"%s\"" % sys.platform
+	if "bos" in component[mm]:
+		print("--> current building platform/os is \"%s\"" % sys.platform)
 		component[mm]["bos"](options, mm, sys.platform)
 
-	if "tos" in component[mm].keys():
+	if "tos" in component[mm]:
 		tos = component[mm]["tos"]
 		isFunction = hasattr(tos, '__call__')
 		if isFunction:
 			tos(options, mm, options.tos, stage)
 		else:
-			if options.tos in component[mm]["tos"].keys():
+			if options.tos in component[mm]["tos"]:
 				tos = component[mm]["tos"][options.tos]
 				isFunction = hasattr(tos, '__call__')
 				if isFunction:
@@ -262,14 +265,14 @@ def build_start(options, mm, stage = 0):
 				else:
 					component[mm]["append"] += tos + " "
 
-	if "default" in component[mm].keys():
+	if "default" in component[mm]:
 		component[mm]["append"] += component[mm]["default"] + " "
 
 	if get_component_is_debug(options, mm):
-		if "debug" in component[mm].keys():
+		if "debug" in component[mm]:
 			component[mm]["append"] += component[mm]["debug"] + " "
 		else:
-			print "<-- current component do not support debug version"
+			print("<-- current component do not support debug version")
 
 	attr = mm.replace("-", "_") + "_build"
 	bdir = getattr(options, attr)
@@ -284,7 +287,7 @@ def build_start(options, mm, stage = 0):
 		if umm == mm and ustage == stage:
 			options.update = "%s.%s.update" % (umm, str(ustage))
 		if options.update.split(".")[-1] == "update":
-			print "--> recompile the module %s, it depends on %s" % (os.path.basename(f), options.update.split(".")[:-2])
+			print("--> recompile the module %s, it depends on %s" % (os.path.basename(f), options.update.split(".")[:-2]))
 			cmd_exec_with_checkerr(options, "rm -rf %s" % f)
 			cmd_exec_with_checkerr(options, "rm -rf %s.*" % f)
 
@@ -317,7 +320,7 @@ def build_is_finished(options, target, real = False):
 			return False
 	if os.path.isfile(target):
 		t = os.path.basename(target)
-		print "<-- current component '%s' has finished" % t.strip(".")
+		print("<-- current component '%s' has finished" % t.strip("."))
 		build_log(options, "%s has already finished" % t)
 		return True
 	return False
@@ -325,7 +328,7 @@ def build_is_finished(options, target, real = False):
 def build_binutils(options, argv):
 	cmd = build_cmd(options, "rm -rf ./* && %s/configure", options.binutils_src)
 	cmd += build_cmd(options, "%s", platform.machine())
-        cmd += build_cmd(options, "--target=%s", (get_target_name(options)))
+	cmd += build_cmd(options, "--target=%s", (get_target_name(options)))
 	cmd += build_cmd(options, "%s", component["binutils"]["append"])
 	cmd += build_cmd(options, "--prefix=%s/", options.prefix)
 	cmd += build_cmd(options, "&& make && make install")
@@ -348,7 +351,9 @@ def build_gcc_initial(options, argv):
 	build_gcc_base(options)
 
 def build_gcc(options, argv):
-	component["gcc"]["append"] += "--enable-languages=c,c++ \
+	# C only: libstdc++-v3's configure link tests fail under this cross build
+	# ("Link tests are not allowed after GCC_NO_EXECUTABLES").
+	component["gcc"]["append"] += "--enable-languages=c \
 	--enable-libssp --disable-nls \
 	--with-lib=%s/%s/lib/ " % (options.prefix, get_target_name(options))
 	build_gcc_base(options)
@@ -367,7 +372,7 @@ def build_gcc(options, argv):
 
 def build_gcc_base(options):
 	cmd = build_cmd(options, "rm -rf ./* && %s/configure", options.gcc_src)
-        cmd += build_cmd(options, "--target=%s", (get_target_name(options)))
+	cmd += build_cmd(options, "--target=%s", (get_target_name(options)))
 	cmd += build_cmd(options, "%s", component["gcc"]["append"])
 	cmd += build_cmd(options, "--prefix=%s/", options.prefix)
 
@@ -405,7 +410,10 @@ def build_gcc_tos(options, mm, tos, stage = 0):
 		component[mm]["append"] += "--enable-sjlj-exceptions --disable-shared "
 		if stage:
 			component[mm]["append"] += "--disable-threads "
-			component[mm]["append"] += "--with-headers=%s/%s/include " % (options.prefix, get_target_name(options))
+			# No --with-headers here: it makes libgcc assume real libc headers, but
+			# minilibc's sys/types.h has no pid_t (libgcov fails with "unknown type
+			# name 'pid_t'"). Without it inhibit_libc is set, which is right for a
+			# bare-metal target.
 
 	if tos.startswith('linux'):
 		component[mm]["append"] += "--enable-shared \
@@ -420,8 +428,8 @@ def build_gcc_tos(options, mm, tos, stage = 0):
 			component[mm]["append"] += "--with-build-time-tools=%s/bin " % options.prefix
 		if not stage:
 			cmd = "cd %s " % options.prefix
-   			cmd += '&& find . -name crtn.o -print -exec rm -rf {} \; '
-   			cmd += '&& find . -name crti.o -print -exec rm -rf {} \; '
+			cmd += r'&& find . -name crtn.o -print -exec rm -rf {} \; '
+			cmd += r'&& find . -name crti.o -print -exec rm -rf {} \; '
 			component[mm]["cmd_post"] = cmd
 
 def build_gcc_compatibility(options, component_chain):
@@ -430,7 +438,7 @@ def build_gcc_compatibility(options, component_chain):
 		if options.no_multilib:
 			opts = component["gcc"]["no-multilib"][options.abi]
 			if options.no_multilib != opts:
-				print "<-- do not support non-default configuration for no multilib"
+				print("<-- do not support non-default configuration for no multilib")
 				return False
 		# compatibility cmd
 		build_cmd_compatibility(options, "--with-cpu")
@@ -602,7 +610,7 @@ def get_gcc_multilib_install_dir(options, argv = "", root = None):
 		if k and not options.tos.startswith(k):
 			continue
 		cpu = get_gcc_multilib_opt(argv, "mcpu=")
-		if cpu in v.keys():
+		if cpu in v:
 			install += "/%s" % v[cpu]
 			break
 
@@ -712,7 +720,7 @@ def build_uclibc(options, argv):
 	for i in range(len(contents)):
 		contents[i] = contents[i].strip()
 
-		for k in change.keys():
+		for k in change:
 			if (contents[i].find(k + "=") != -1) or (contents[i].find(" " + k + " is not set") != -1):
 				enable = change[k][1]
 				if not enable: continue
@@ -738,10 +746,10 @@ def build_uclibc(options, argv):
 	cmd_exec_with_checkerr(options, cmd)
 
 	install = "%s/%s/libc/" % (options.prefix, get_target_name(options))
-   	cmd = "cd %s && mv usr/include tmpinclude " % install
-   	cmd += '&& for i in `find . -name "include"` ; do\nrm -rf $i\ndone '
-   	cmd += '&& mv tmpinclude usr/include '
-   	cmd_exec_with_checkerr(options, cmd)
+	cmd = "cd %s && mv usr/include tmpinclude " % install
+	cmd += '&& for i in `find . -name "include"` ; do\nrm -rf $i\ndone '
+	cmd += '&& mv tmpinclude usr/include '
+	cmd_exec_with_checkerr(options, cmd)
 
 def build_uclibc_ng(options, argv):
 	cmd = "rm -rf ./* && cp -af %s/* ." % options.uclibc_ng_src
@@ -811,7 +819,7 @@ def build_glibc(options, argv):
 
 	t = {"CC"  : "gcc", "CXX" : "g++", "AS"  : "as", "LD"  : "ld"}
 	endian = get_gcc_multilib_opt(argv, "mbig-endian", "r", "EB") or "EL"
-	for i in t.keys():
+	for i in t:
 		cmd += build_cmd(options, '%s=\"%s-%s -%s -%s\"', (i, get_target_name(options), t[i], get_gcc_multilib_opt(argv, "mcpu"), endian))
 
 	cmd += build_cmd(options, "CFLAGS=\"%s\"", get_gcc_multilib_compiler_flags(options, "glibc", argv))
@@ -850,24 +858,24 @@ def build_glibc(options, argv):
 	if get_gcc_multilib_opt(argv, "mpic"):
 		install += "/usr/lib/"
 		cmd = "cd %s " % install
-		cmd += '&& for i in `find . -type f -name \'lib*.a\' | sed -e \'s/lib\///\'` ; do\nmv $i `echo $i | sed -e \'s/\.a/_pic.a/\'`;\ndone '
+		cmd += "&& for i in `find . -type f -name 'lib*.a' | sed -e 's/lib\\///'` ; do\nmv $i `echo $i | sed -e 's/\\.a/_pic.a/'`;\ndone "
 		cmd_exec_with_checkerr(options, cmd)
 
 	# cp crt1.o to crt0.o
 	cmd = "cd %s " % options.prefix
-   	cmd += '&& for i in `find . -name "crt1.o"` ; do\ncp $i `echo ${i} | sed \'s/crt1/crt0/\'`\ndone '
-   	cmd_exec_with_checkerr(options, cmd)
+	cmd += '&& for i in `find . -name "crt1.o"` ; do\ncp $i `echo ${i} | sed \'s/crt1/crt0/\'`\ndone '
+	cmd_exec_with_checkerr(options, cmd)
 
-   	install = "%s/%s/libc/" % (options.prefix, get_target_name(options))
-   	cmd = "cd %s && mv usr/include tmpinclude " % install
-   	cmd += '&& for i in `find . -name "include"` ; do\nrm -rf $i\ndone '
-   	cmd += '&& mv tmpinclude usr/include '
-   	cmd_exec_with_checkerr(options, cmd)
+	install = "%s/%s/libc/" % (options.prefix, get_target_name(options))
+	cmd = "cd %s && mv usr/include tmpinclude " % install
+	cmd += '&& for i in `find . -name "include"` ; do\nrm -rf $i\ndone '
+	cmd += '&& mv tmpinclude usr/include '
+	cmd_exec_with_checkerr(options, cmd)
 
 def get_component_chain(options, mm):
 	(m, stage) = get_component(options, mm)
 	deps = ""
-	if "worker" in component[m].keys():
+	if "worker" in component[m]:
 		deps = component[m]["worker"][stage][1]
 
 	mm = [mm]
@@ -904,7 +912,7 @@ def get_component_valid_chain(options, mm, init = False, get_components = False)
 				chain.extend(c)
 
 	for m in chain:
-		if m not in component.keys():
+		if m not in component:
 			attr = m.lstrip("-").replace("-", "_")
 			if hasattr(options, attr):
 				v = getattr(options, attr)
@@ -925,9 +933,9 @@ def get_component_valid_chain(options, mm, init = False, get_components = False)
 		if not init:
 			url = get_component_url(options, m)
 			if url["type"] != "local":
-				if "url" not in component[m].keys():
+				if "url" not in component[m]:
 					continue
-				print "\n<-- component '%s' source code dir is not valid, please run with additional command '--init'" % m
+				print("\n<-- component '%s' source code dir is not valid, please run with additional command '--init'" % m)
 				return ""
 
 	if get_components: chain = cchain
@@ -936,9 +944,9 @@ def get_component_valid_chain(options, mm, init = False, get_components = False)
 def get_component_valid_compatibility(options, component_chain):
 	for mm in component_chain:
 		(mm, stage) = get_component(options, mm)
-		if "compatibility" in component[mm].keys():
+		if "compatibility" in component[mm]:
 			if not component[mm]["compatibility"](options, component_chain):
-				print "<-- current component '%s' version '%s' has some compatibility problems" % (mm, get_component_version(options, mm))
+				print("<-- current component '%s' version '%s' has some compatibility problems" % (mm, get_component_version(options, mm)))
 				return False
 	return True
 
@@ -985,7 +993,8 @@ def build_toolchain_env(options, mm):
 			cmd = build_cmd(options, "git clone %s %s", (url, source_dirname + "/" + m))
 			cmd += build_cmd(options, "%s", " ".join(opt))
 
-                if url.startswith("git@"):
+		# https:// so the clone works without SSH keys (e.g. in a container)
+		if url.startswith("git@") or url.startswith("https://"):
 			cmd = build_cmd(options, "git clone %s %s", (url, source_dirname + "/" + m))
 			cmd += build_cmd(options, "%s", " ".join(opt))
 
@@ -997,12 +1006,12 @@ def build_toolchain_env(options, mm):
 		url = info["url"]
 
 		if type == "local":
-			print "\n<-- component '%s' source code url ['%s'] is ok" % (mm, url)
+			print("\n<-- component '%s' source code url ['%s'] is ok" % (mm, url))
 			return
 
 		# append all urls into ss, the first url is prefer
 		ss = [url]
-		if "url" in component[mm].keys():
+		if "url" in component[mm]:
 			ss += [component[mm]["url"]]
 
 		cmd = ""
@@ -1010,17 +1019,17 @@ def build_toolchain_env(options, mm):
 			cmd = get_toolchain_component_url_cmd(options, mm, s)
 			if not cmd: continue
 
-			print "\n--> " + cmd
+			print("\n--> " + cmd)
 			(o, e, r) = cmd_exec(options, cmd)
 			if cmd_exec_is_error(r, e):
 				cmd = ""
 				continue
 			break
 		if not cmd:
-			print "\n<-- component '%s' source code url %s is not valid" % (mm, ss)
+			print("\n<-- component '%s' source code url %s is not valid" % (mm, ss))
 
 	component_chain = get_component_valid_chain(options, mm, True, True)
-	print "\n====> toolchain components = %s" % str(component_chain)
+	print("\n====> toolchain components = %s" % str(component_chain))
 
 	for mm in component_chain:
 		sdir = getattr(options, mm.replace("-", "_") + "_src")
@@ -1040,13 +1049,13 @@ def build_worker(options, mm, stage = 0):
 
 	worker = component[mm]["worker"][stage][0]
 
-	if "multilib" in component[mm].keys():
+	if "multilib" in component[mm]:
 		param = component[mm]["multilib"]
 		tab = build_gcc_multilib(options, param)
 
 		for i in tab:
 			i = tuple(i)
-			print "\n--> multilib option: %s" % str(i)
+			print("\n--> multilib option: %s" % str(i))
 			f = get_finished_target(options, mm, stage, i)
 			if build_is_finished(options, f):
 				continue
@@ -1087,11 +1096,11 @@ def build_init(options):
 
 	if options.debug:
 		options.debug = options.debug.replace(" ", "").split(",")
-		if "*" in options.debug: options.debug = component.keys()
+		if "*" in options.debug: options.debug = list(component.keys())
 
 	if options.addon:
 		options.addon = options.addon.replace(" ", "").split(",")
-		if "*" in options.addon: options.addon = addons.keys()
+		if "*" in options.addon: options.addon = list(addons.keys())
 
 	if not options.build:
 		if not options.prefix:
@@ -1112,7 +1121,7 @@ def build_init(options):
 
 	options.linux_libc_headers_install = "%s/%s/libc/usr/include/" % (options.prefix, get_target_name(options))
 
-	for m in component.keys():
+	for m in component:
 		opt = m.replace("-", "_") + "_src"
 		t = getattr(options, opt).split(",")
 		setattr(options, opt, t[0])
@@ -1141,10 +1150,10 @@ def main():
 	                  help=("select libc (default: %s)" % profile["libc"][0]), metavar=str(profile["libc"]))
 
 	parser.add_option("-m", dest="component",
-					  help="select the component(with dependents) to build", metavar=str(component.keys()))
+					  help="select the component(with dependents) to build", metavar=str(list(component.keys())))
 
 	parser.add_option("--addon", dest="addon",
-					  help="enable addon to build (\"*\" means enable all addons, multiple addons are splited by \",\")", metavar=str(addons.keys()))
+					  help="enable addon to build (\"*\" means enable all addons, multiple addons are splited by \",\")", metavar=str(list(addons.keys())))
 
 	parser.add_option("--no-deps", dest="no_deps", help="ignore the dependent components if it exist (\"*\" means ignore all deps, multiple components are splited by \",\")")
 
@@ -1167,8 +1176,10 @@ def main():
 	                  help="only initialize/check the building env(source code) if it exist")
 
 	# helpers
-	parser.add_option("--user", dest="user", default=os.environ['USER'],
-	                  help=("set git user (default: %s)" % os.environ['USER']))
+	# $USER is unset in a bare container; only the uclibc url rewriting uses it
+	user = os.environ.get("USER", "")
+	parser.add_option("--user", dest="user", default=user,
+	                  help=("set git user (default: %s)" % user))
 
 	parser.add_option("--makejob", dest="makejob", default="1",
 					  help="allow N jobs at once to speed up build (default: 1, '--makejob= ' means the max speed)")
@@ -1192,10 +1203,10 @@ def main():
 
 	component = dict(component, **addons)
 
-	for m in component.keys():
+	for m in component:
 		opt = m + "-src"
 		h = "select %s source code dir (default: %s/%s)" % (m, source_dirname, m)
-		if "comment" in component[m].keys(): h += " %s" % component[m]["comment"]
+		if "comment" in component[m]: h += " %s" % component[m]["comment"]
 		parser.add_option("--" + opt, dest=opt.replace("-", "_"), default=source_dirname + "/" + m, help=(h))
 
 	(options, args) = parser.parse_args()
@@ -1209,7 +1220,8 @@ def main():
 	if options.addon:
 		mm += options.addon
 
-	mm.append("gdb")
+	# gdb is not built: the gdb-7.12-branch-csky sources do not compile with a
+	# current host C++ compiler. Build it explicitly with "-m gdb" if needed.
 	mm.append("mklink")
 	if options.init:
 		build_toolchain_env(options, mm)
@@ -1217,7 +1229,7 @@ def main():
 
 	component_chain = get_component_valid_chain(options, mm)
 	if not component_chain: return
-	print "\n====> components chain = %s" % str(component_chain)
+	print("\n====> components chain = %s" % str(component_chain))
 
 	if not get_component_valid_compatibility(options, component_chain): return
 
@@ -1231,8 +1243,8 @@ def main():
 		build_worker(options, mm, stage)
 		build_return(options, mm, stage)
 
-	print "\n====> success to build component chain: %s" % str(component_chain)
-	print "--> install dir: %s\n" % options.prefix
+	print("\n====> success to build component chain: %s" % str(component_chain))
+	print("--> install dir: %s\n" % options.prefix)
 
 
 profile = {
@@ -1242,14 +1254,14 @@ profile = {
 }
 
 component = {
-        "binutils"	: { "url"		: "git@github.com:c-sky/binutils-gdb.git",
+        "binutils"	: { "url"		: "https://github.com/c-sky/binutils-gdb.git",
 					"debug" 	: 'CFLAGS="-g -O0" CXXFLAGS="-g -O0"',
 					"default" 	: '--disable-gdb --disable-werror',
 					"worker" 	: [(build_binutils, "")],
 					"tos" 		: {"linux" : "--with-sysroot=yes"},
 				  },
 
-        "gcc"		: { "url"		: "git@github.com:c-sky/gcc.git",
+        "gcc"		: { "url"		: "https://github.com/c-sky/gcc.git",
 					"debug" 	: 'CFLAGS="-g -O0" CXXFLAGS="-g -O0"',
 					"worker" 	: [(build_gcc_initial, "binutils"), (build_gcc, "--libc")],
 					"bos" 		: build_gcc_bos,
@@ -1263,7 +1275,7 @@ component = {
 								: build_gcc_compatibility,
 				  },
 
-        "minilibc"	: { "url"		: "git@github.com:c-sky/toolchain-build.git",
+        "minilibc"	: { "url"		: "https://github.com/c-sky/toolchain-build.git",
 					"worker" 	: [(build_minilibc, "gcc.0")],
 				  },
 
@@ -1296,7 +1308,7 @@ component = {
 				  },
 	"gdb"	:
 		{
-			"url"	: "git@github.com:c-sky/binutils-gdb.git,  --branch=gdb-7.12-branch-csky",
+			"url"	: "https://github.com/c-sky/binutils-gdb.git,  --branch=gdb-7.12-branch-csky",
 			"default" 	: '--disable-ld --disable-gas --disable-binutils --disable-gold --disable-gprof --without-auto-load-safe-path --with-python=no --disable-sim --enable-install-libbfd',
 			"worker" 	: [(build_gdb, "")],
 		},
@@ -1366,7 +1378,7 @@ def build_gcc_test(options, argv):
 		o = get_gcc_multilib_opt(opt, i)
 		a = get_gcc_multilib_opt(argv, i)
 		if o and a and o != a:
-			print "<-- current config is filtered out by option '%s'" % o
+			print("<-- current config is filtered out by option '%s'" % o)
 			return
 	for i in argv:
 		if i in opt:
@@ -1376,7 +1388,7 @@ def build_gcc_test(options, argv):
 		else:
 			ii = i[0] + "no-" + i[1:]
 		if ii in opt:
-			print "<-- current config is filtered out by option '%s'" % ii
+			print("<-- current config is filtered out by option '%s'" % ii)
 			return
 
 	debug = (get_component_is_debug(options, "gcc-test") and "-v -v -v") or ""
@@ -1411,7 +1423,7 @@ def build_gcc_test(options, argv):
 		cflags = "-march=%s -%s -%s %s" % (cpu, endian, fp, get_gcc_test_compiler_flags(options, argv))
 		cmd = build_cmd(options, "sed -i 's/^set csky_cflags.*/set csky_cflags \"%s\"/' %s.exp", (cflags, board))
 		if options.tos.startswith("elf"):
-			bsp_srcdir = "$srcdir\/gcc.target\/csky\/arch\/%s\/%s\/qemu" % (machine, cpu)
+			bsp_srcdir = "$srcdir\\/gcc.target\\/csky\\/arch\\/%s\\/%s\\/qemu" % (machine, cpu)
 			cmd += build_cmd(options, "&& sed -i 's/^set csky_bsp_srcdir.*/set csky_bsp_srcdir \"%s\"/' %s.exp", (bsp_srcdir, board))
 		cmd_exec_with_checkerr(options, cmd)
 
@@ -1435,7 +1447,7 @@ def build_gcc_test(options, argv):
 	cmd += build_cmd(options, "make check RUNTESTFLAGS=\"--target_board=%s %s SIM='%s' --outdir=%s %s\"", (board, testcase, sim, outdir, debug))
 	cmd_exec_with_checkerr(options, cmd)
 	build_gcc_test_patch(options, argv, False)
-	print "\n--> gcc-test install dir: %s" % outdir
+	print("\n--> gcc-test install dir: %s" % outdir)
 
 
 addons = {
